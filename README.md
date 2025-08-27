@@ -16,12 +16,3 @@ A simple mini blogging platform where users can sign up, log in, create, edit, a
 
 ## Live Demo
 [👉 View Live Project](https://your-netlify-link.netlify.app)  
-*(Replace with your actual Netlify URL)*
-
----
-
-## Project Setup
-
-1. Clone the repo:
-   ```bash
-   git clone https://github.com/your-username/your-repo-name.git

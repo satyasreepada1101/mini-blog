@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini Blog</title>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+      getFirestore, collection, addDoc, getDocs, serverTimestamp, 
+      query, orderBy, deleteDoc, doc, updateDoc 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import {
+      getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+      signOut, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCY9cV3p76Jyni5awm_RdQZoqM_Yj0Y8VE",
+      authDomain: "mini-blog-b9514.firebaseapp.com",
+      projectId: "mini-blog-b9514",
+      storageBucket: "mini-blog-b9514.appspot.com",
+      messagingSenderId: "92803895810",
+      appId: "1:92803895810:web:89c01ee218c776f6458d1b",
+      measurementId: "G-YE5B406VGR"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const postsRef = collection(db, "posts");
+
+    let editMode = false;
+    let editId = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const titleInput = document.getElementById("title");
+      const contentInput = document.getElementById("content");
+      const addBtn = document.getElementById("addPost");
+      const postsContainer = document.getElementById("posts");
+
+      const signupEmail = document.getElementById("signupEmail");
+      const signupPass = document.getElementById("signupPass");
+      const signupBtn = document.getElementById("signupBtn");
+
+      const loginEmail = document.getElementById("loginEmail");
+      const loginPass = document.getElementById("loginPass");
+      const loginBtn = document.getElementById("loginBtn");
+      const logoutBtn = document.getElementById("logoutBtn");
+
+      const authSection = document.getElementById("authSection");
+      const blogSection = document.getElementById("blogSection");
+      const userInfo = document.getElementById("userInfo");
+
+      const switchToLogin = document.getElementById("switchToLogin");
+      const switchToSignup = document.getElementById("switchToSignup");
+      const signupForm = document.getElementById("signupForm");
+      const loginForm = document.getElementById("loginForm");
+
+      // Toggle forms
+      switchToLogin.addEventListener("click", () => {
+        signupForm.style.display = "none";
+        loginForm.style.display = "block";
+      });
+      switchToSignup.addEventListener("click", () => {
+        loginForm.style.display = "none";
+        signupForm.style.display = "block";
+      });
+
+      async function loadPosts() {
+        postsContainer.innerHTML = "";
+        const q = query(postsRef, orderBy("timestamp", "desc"));
+        const snapshot = await getDocs(q);
+
+        snapshot.forEach(docSnap => {
+          const post = docSnap.data();
+
+          if (post.uid === auth.currentUser.uid) {
+            const postDiv = document.createElement("div");
+            postDiv.className = "post";
+
+            postDiv.innerHTML = `
+              <h3>${post.title}</h3>
+              <p>${post.content}</p>
+              <small>${post.timestamp?.toDate().toLocaleString()}</small>
+              <div class="actions">
+                <button class="editBtn" data-id="${docSnap.id}" data-title="${post.title}" data-content="${post.content}">✏️ Edit</button>
+                <button class="deleteBtn danger" data-id="${docSnap.id}">🗑 Delete</button>
+              </div>
+            `;
+
+            postsContainer.appendChild(postDiv);
+          }
+        });
+
+        document.querySelectorAll(".deleteBtn").forEach(btn => {
+          btn.addEventListener("click", async (e) => {
+            const id = e.target.getAttribute("data-id");
+            await deleteDoc(doc(db, "posts", id));
+            loadPosts();
+          });
+        });
+
+        document.querySelectorAll(".editBtn").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            editMode = true;
+            editId = e.target.getAttribute("data-id");
+            titleInput.value = e.target.getAttribute("data-title");
+            contentInput.value = e.target.getAttribute("data-content");
+            addBtn.textContent = "💾 Update Post";
+          });
+        });
+      }
+
+      addBtn.addEventListener("click", async () => {
+        const title = titleInput.value.trim();
+        const content = contentInput.value.trim();
+        if (!title || !content) return;
+
+        if (editMode) {
+          const postRef = doc(db, "posts", editId);
+          await updateDoc(postRef, {
+            title,
+            content,
+            timestamp: serverTimestamp()
+          });
+          editMode = false;
+          editId = null;
+          addBtn.textContent = "➕ Add Post";
+        } else {
+          await addDoc(postsRef, {
+            title,
+            content,
+            timestamp: serverTimestamp(),
+            uid: auth.currentUser.uid
+          });
+        }
+
+        titleInput.value = "";
+        contentInput.value = "";
+        loadPosts();
+      });
+
+      signupBtn.addEventListener("click", async () => {
+        try {
+          await createUserWithEmailAndPassword(auth, signupEmail.value, signupPass.value);
+          alert("Signup successful!");
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      loginBtn.addEventListener("click", async () => {
+        try {
+          await signInWithEmailAndPassword(auth, loginEmail.value, loginPass.value);
+          alert("Login successful!");
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      logoutBtn.addEventListener("click", async () => {
+        await signOut(auth);
+      });
+
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          authSection.style.display = "none";
+          blogSection.style.display = "block";
+          userInfo.textContent = `👤 ${user.email}`;
+          loadPosts();
+        } else {
+          authSection.style.display = "block";
+          blogSection.style.display = "none";
+          userInfo.textContent = "";
+          postsContainer.innerHTML = "";
+        }
+      });
+    });
+  </script>
+
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #f6d365, #fda085);
+      color: #333;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #2c3e50;
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    #userInfo {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 30px auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0px 6px 20px rgba(0,0,0,0.15);
+    }
+
+    h2 {
+      margin-bottom: 15px;
+      color: #e67e22;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0 15px 0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border: 1px solid #e67e22;
+      box-shadow: 0 0 5px #f39c12;
+    }
+
+    button {
+      background: #e67e22;
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover {
+      background: #d35400;
+      transform: translateY(-1px);
+    }
+
+    button.danger {
+      background: #e74c3c;
+    }
+    button.danger:hover {
+      background: #c0392b;
+    }
+
+    .post {
+      border: 1px solid #eee;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 10px;
+      background: #fffaf3;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+    }
+
+    .post h3 {
+      margin: 0 0 8px;
+      color: #2c3e50;
+    }
+
+    .post small {
+      color: #777;
+      display: block;
+      margin-top: 5px;
+      font-size: 12px;
+    }
+
+    .actions {
+      margin-top: 10px;
+    }
+
+    .actions button {
+      margin-right: 8px;
+    }
+
+    #authSection {
+      text-align: center;
+    }
+
+    .auth-card {
+      margin: 0 auto;
+      max-width: 350px;
+      padding: 20px;
+      border-radius: 10px;
+      background: #fdfdfd;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .auth-card h2 {
+      margin-bottom: 10px;
+      font-size: 18px;
+      color: #e67e22;
+    }
+
+    .switch-link {
+      margin-top: 10px;
+      display: block;
+      font-size: 13px;
+      color: #d35400;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📝 Mini Blog</h1>
+    <span id="userInfo"></span>
+  </header>
+
+  <div class="container">
+    <!-- Auth Section -->
+    <div id="authSection">
+      <div class="auth-card" id="signupForm">
+        <h2>🔑 Sign Up</h2>
+        <input id="signupEmail" type="email" placeholder="Email">
+        <input id="signupPass" type="password" placeholder="Password">
+        <button id="signupBtn">Create Account</button>
+        <span class="switch-link" id="switchToLogin">Already have an account? Log in</span>
+      </div>
+
+      <div class="auth-card" id="loginForm" style="display:none;">
+        <h2>👋 Welcome Back</h2>
+        <input id="loginEmail" type="email" placeholder="Email">
+        <input id="loginPass" type="password" placeholder="Password">
+        <button id="loginBtn">Login</button>
+        <span class="switch-link" id="switchToSignup">Don’t have an account? Sign up</span>
+      </div>
+    </div>
+
+    <!-- Blog Section -->
+    <div id="blogSection" style="display:none;">
+      <button id="logoutBtn" class="danger" style="float:right">🚪 Logout</button>
+      <h2>Create / Edit Post</h2>
+      <input id="title" type="text" placeholder="Enter title">
+      <textarea id="content" rows="3" placeholder="Enter content"></textarea>
+      <button id="addPost">➕ Add Post</button>
+
+      <h2>My Posts</h2>
+      <div id="posts"></div>
+    </div>
+  </div>
+</body>
+</html>

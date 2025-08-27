@@ -15,5 +15,6 @@ A simple mini blogging platform where users can sign up, log in, create, edit, a
 ---
 
 ## Live Demo
-[👉 View Live Project] https://mini-blog-demo.netlify.app/    
+[👉 View Live Project](https://mini-blog-demo.netlify.app/)  
 The webpage can be accessed without any setup
+
